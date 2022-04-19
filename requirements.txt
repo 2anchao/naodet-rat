@@ -8,6 +8,7 @@ opencv-python
 pyaml
 pycocotools
 pytorch-lightning>=1.4.0
+setuptools==59.5.0
 tabulate
 tensorboard
 termcolor
