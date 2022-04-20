@@ -20,6 +20,7 @@ cfg.schedule = CfgNode(new_allowed=True)
 # logger
 cfg.log = CfgNode()
 cfg.log.interval = 50
+cfg.log.log_savedir = 'logs'
 
 # testing
 cfg.test = CfgNode()

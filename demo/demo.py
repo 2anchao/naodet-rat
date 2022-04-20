@@ -112,9 +112,7 @@ def main():
             meta, res = predictor.inference(image_name)
             result_image = predictor.visualize(res[0], meta, cfg.class_names, 0.35)
             if args.save_result:
-                save_folder = os.path.join(
-                    cfg.save_dir, time.strftime("%Y_%m_%d_%H_%M_%S", current_time)
-                )
+                save_folder = "demo_img"
                 mkdir(local_rank, save_folder)
                 save_file_name = os.path.join(save_folder, os.path.basename(image_name))
                 cv2.imwrite(save_file_name, result_image)

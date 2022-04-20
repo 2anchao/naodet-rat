@@ -1,4 +1,4 @@
-# Modification 2020 RangiLyu
+# Modification 2022 AnChao
 # Copyright 2018-2019 Open-MMLab.
 
 # Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,7 +12,7 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
+import math
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -96,5 +96,66 @@ class FPN(nn.Module):
         ]
         return tuple(outs)
 
+class DeconvLayer(nn.Module):
+
+    def __init__(self,
+                 in_planes: int,
+                 out_planes: int,
+                 deconv_kernel: int,
+                 deconv_stride: int = 2,
+                 deconv_pad: int = 1,
+                 deconv_out_pad: int = 0):
+        super(DeconvLayer, self).__init__()
+        self.dcn = nn.Conv2d(in_planes, out_planes,
+                                kernel_size=3, stride=1,
+                                padding=1, dilation=1, bias=False)
+        self.dcn_bn = nn.BatchNorm2d(out_planes)
+        self.up_sample = nn.ConvTranspose2d(in_channels=out_planes, out_channels=out_planes, kernel_size=deconv_kernel,
+                                            stride=deconv_stride, padding=deconv_pad, output_padding=deconv_out_pad,
+                                            bias=False)
+        self._deconv_init()
+        self.up_bn = nn.BatchNorm2d(out_planes)
+        self.relu = nn.ReLU()
+
+    def forward(self, x):
+        x = self.dcn(x)
+        x = self.dcn_bn(x)
+        x = self.relu(x)
+        x = self.up_sample(x)
+        x = self.up_bn(x)
+        x = self.relu(x)
+        return x
+
+    def _deconv_init(self):
+        w = self.up_sample.weight.data
+        f = math.ceil(w.size(2) / 2)
+        c = (2 * f - 1 - f % 2) / (2. * f)
+        for i in range(w.size(2)):
+            for j in range(w.size(3)):
+                w[0, 0, i, j] = (1 - math.fabs(i / f - c)) * (1 - math.fabs(j / f - c))
+        for c in range(1, w.size(0)):
+            w[c, 0, :, :] = w[0, 0, :, :]
+
+class CenternetDeconv(nn.Module):
+    """
+    The head used in CenterNet for object classification and box regression.
+    It has three subnet, with a common structure but separate parameters.
+    """
+
+    def __init__(self,
+                 deconv_channels = [512, 256, 128, 64],
+                 deconv_kernel = [4, 4, 4],
+                 modulate_deform: bool = True):
+        super(CenternetDeconv, self).__init__()
+
+        self.deconv1 = DeconvLayer(deconv_channels[0], deconv_channels[1], deconv_kernel=deconv_kernel[0])
+        self.deconv2 = DeconvLayer(deconv_channels[1], deconv_channels[2], deconv_kernel=deconv_kernel[1])
+        self.deconv3 = DeconvLayer(deconv_channels[2], deconv_channels[3], deconv_kernel=deconv_kernel[2])
+
+    def forward(self, x, targets=None):
+        x = self.deconv1(x[-1])
+        x = self.deconv2(x)
+        x = self.deconv3(x)
+        return tuple([x])
 
 # if __name__ == '__main__':

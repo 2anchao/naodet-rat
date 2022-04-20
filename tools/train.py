@@ -1,4 +1,4 @@
-# Copyright 2021 RangiLyu.
+# Copyright 2022 AnChao.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -19,7 +19,6 @@ import warnings
 import pytorch_lightning as pl
 import torch
 from pytorch_lightning.callbacks import ProgressBar
-
 from nanodet.data.collate import naive_collate
 from nanodet.data.dataset import build_dataset
 from nanodet.evaluator import build_evaluator
@@ -58,8 +57,9 @@ def main(args):
     torch.backends.cudnn.enabled = True
     torch.backends.cudnn.benchmark = True
     mkdir(local_rank, cfg.save_dir)
+    mkdir(local_rank, cfg.log.log_savedir)
 
-    logger = NanoDetLightningLogger(cfg.save_dir)
+    logger = NanoDetLightningLogger(cfg.log.log_savedir)
     logger.dump_cfg(cfg)
 
     if args.seed is not None:

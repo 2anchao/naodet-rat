@@ -1,4 +1,4 @@
-# Copyright 2021 RangiLyu.
+# Copyright 2022 AnChao.
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -14,7 +14,7 @@
 
 import copy
 
-from .fpn import FPN
+from .fpn import FPN, CenternetDeconv
 from .ghost_pan import GhostPAN
 from .pan import PAN
 from .tan import TAN
@@ -31,5 +31,7 @@ def build_fpn(cfg):
         return TAN(**fpn_cfg)
     elif name == "GhostPAN":
         return GhostPAN(**fpn_cfg)
+    elif name == "CenternetDeconv":
+        return CenternetDeconv(**fpn_cfg)
     else:
         raise NotImplementedError
