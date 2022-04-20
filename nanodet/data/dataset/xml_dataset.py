@@ -14,23 +14,20 @@
 
 import logging
 import os
+import glob
 import time
 import xml.etree.ElementTree as ET
 from collections import defaultdict
 
 from pycocotools.coco import COCO
 
-from .coco import CocoDataset
+from nanodet.data.dataset.coco import CocoDataset
 
 
 def get_file_list(path, type=".xml"):
-    file_names = []
-    for maindir, subdir, file_name_list in os.walk(path):
-        for filename in file_name_list:
-            apath = os.path.join(maindir, filename)
-            ext = os.path.splitext(apath)[1]
-            if ext == type:
-                file_names.append(filename)
+    file_path = os.path.join(path, "*/*/*.xml")
+    file_names = glob.glob(file_path)
+    assert len(file_names)>0, "没读到数据!"
     return file_names
 
 
@@ -58,6 +55,7 @@ class XMLDataset(CocoDataset):
         self.class_names = class_names
         super(XMLDataset, self).__init__(**kwargs)
 
+
     def xml_to_coco(self, ann_path):
         """
         convert xml annotations to coco_api
@@ -79,7 +77,9 @@ class XMLDataset(CocoDataset):
         for idx, xml_name in enumerate(ann_file_names):
             tree = ET.parse(os.path.join(ann_path, xml_name))
             root = tree.getroot()
-            file_name = root.find("filename").text
+            inter_name = root.find("filename").text
+            ext = os.path.splitext(inter_name)[-1]
+            file_name = xml_name.replace(".xml", ext)
             width = int(root.find("size").find("width").text)
             height = int(root.find("size").find("height").text)
             info = {
@@ -155,3 +155,46 @@ class XMLDataset(CocoDataset):
         self.img_ids = sorted(self.coco_api.imgs.keys())
         img_info = self.coco_api.loadImgs(self.img_ids)
         return img_info
+
+if __name__ == "__main__":
+    import torch
+    import cv2
+    import numpy as np
+    from nanodet.data.dataset import build_dataset
+    from nanodet.util import cfg, load_config
+    from nanodet.data.collate import naive_collate
+
+    load_config(cfg, "config/nanodet_custom_xml_dataset.yml")
+
+    train_dataset = build_dataset(cfg.data.train, "train")
+    train_dataloader = torch.utils.data.DataLoader(
+        train_dataset,
+        batch_size=cfg.device.batchsize_per_gpu,
+        shuffle=True,
+        num_workers=cfg.device.workers_per_gpu,
+        pin_memory=True,
+        collate_fn=naive_collate,
+        drop_last=True,
+    )
+    for batch_meta in train_dataloader:
+        imgs = batch_meta["img"]
+        gt_bboxes = batch_meta["gt_bboxes"]
+        gt_labels = batch_meta["gt_labels"]
+        for labels, bboxes, img in zip(gt_labels, gt_bboxes, imgs):
+            cv_img = np.asarray(img.cpu()).transpose(1, 2, 0)
+            mean = np.array([103.53, 116.28, 123.675])
+            std = np.array([57.375, 57.12, 58.395])
+            cv_img *= std
+            cv_img += mean
+            cv_img = cv_img.astype(np.uint8)[:, :, [2, 1, 0]]
+            cv_img = cv2.cvtColor(np.asarray(cv_img), cv2.COLOR_RGB2BGR)
+            for i,box in enumerate(bboxes):
+                label = labels[i]
+                assert label==0
+                xmin, ymin = box[0], box[1]
+                xmax, ymax = box[2], box[3]
+                cv2.rectangle(cv_img, (int(xmin), int(ymin)), (int(xmax), int(ymax)), (0, 0, 255), 2)
+            cv2.imwrite("look.jpg", cv_img)
+            import pdb; pdb.set_trace()
+
+
