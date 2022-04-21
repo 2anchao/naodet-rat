@@ -21,9 +21,10 @@ model:
       input_channel: 64
       feat_channels: 64
       stacked_convs: 3
-      kernel_size: 5
+      share_cls_reg: True
+      octave_base_scale: 8
+      scales_per_octave: 1
       strides: [4]
-      activation: LeakyReLU
       reg_max: 7
       norm_cfg:
         type: BN
